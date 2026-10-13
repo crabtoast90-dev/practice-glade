@@ -14,7 +14,7 @@ three.js (pinned, WebGLRenderer; current API docs: https://threejs.org/llms.txt)
 - `?debug` shows the FPS overlay. The cloud has no GPU: screenshots prove the look, not the speed.
 
 ## Self-check
-`npm run check` builds, plays a scripted laptop and phone run headless, writes screenshots and `summary.txt` to `check-output/`. It fails on any console error or if the state didn't change. Add steps to `scripts/check.mjs` for every feature you build. `npm run check -- --url=https://crabtoast90-dev.github.io/practice-glade/` checks the live site.
+`npm run check` builds, plays a scripted laptop and phone run headless, writes screenshots and `summary.txt` to a new timestamped folder in `check-output/` (the last 5 runs are kept, older ones deleted; the folder is git-ignored). It fails on any console error or if the state didn't change. Add steps to `scripts/check.mjs` for every feature you build. `npm run check -- --url=https://crabtoast90-dev.github.io/practice-glade/` checks the live site.
 Before calling any task done: open the screenshots and say in one line what you see.
 
 ## Deploy
@@ -22,6 +22,9 @@ Every push to `main` deploys to GitHub Pages via `.github/workflows/deploy.yml`:
 
 ## Merge rule (every session)
 Work on your own branch. When the check passes and you have looked at the screenshots: rebase on main, rerun the check, merge to main, push. One merge at a time; if main moved, rebase and check again.
+
+## End of every session
+Ask the user for their minutes (directing / reviewing / playing) and fun and look scores 1-5, then write the `LOG.md` row yourself. The user never edits `LOG.md` by hand.
 
 ## Files to keep up to date
 - `LOG.md`: add one line per session (date, minutes directing / reviewing / playing, shipped or killed, usage cap hit yes/no, fun and look 1-5 left blank for the user).

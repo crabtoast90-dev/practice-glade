@@ -2,10 +2,12 @@
 // test clock, save screenshots, and fail on console errors or a frozen state.
 import { build, preview } from 'vite';
 import { chromium } from 'playwright-core';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const OUT = 'check-output';
+const RUNS = 'check-output';
+const KEEP = 5;
+const OUT = join(RUNS, new Date().toISOString().replace(/[:.]/g, '-')); // one folder per run
 const URL_ARG = process.argv.find((a) => a.startsWith('--url='))?.slice(6); // check a deployed build instead
 
 // Browser: CHROME_PATH, else the cloud's preinstalled Chromium, else Playwright's own.
@@ -19,8 +21,9 @@ function chromePath() {
 const failures = [];
 const log = [];
 
-rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
+// Keep the newest KEEP runs (timestamped names sort oldest-first); delete the rest.
+for (const old of readdirSync(RUNS).sort().slice(0, -KEEP)) rmSync(join(RUNS, old), { recursive: true, force: true });
 
 let server;
 let base = URL_ARG;
