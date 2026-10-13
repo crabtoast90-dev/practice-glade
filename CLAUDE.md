@@ -25,6 +25,7 @@ Work on your own branch. When the check passes and you have looked at the screen
 
 ## End of every session
 Ask the user for their minutes (directing / reviewing / playing) and fun and look scores 1-5, then write the `LOG.md` row yourself. The user never edits `LOG.md` by hand.
+Skip the log row for process-only sessions with no back and forth.
 
 ## Files to keep up to date
 - `LOG.md`: add one line per session (date, minutes directing / reviewing / playing, shipped or killed, usage cap hit yes/no, fun and look 1-5 left blank for the user).
