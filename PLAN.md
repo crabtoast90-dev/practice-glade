@@ -37,9 +37,9 @@ Each item can be pasted alone into a fresh builder session. Every session reads 
 
 ## Day 3: ship
 
-- [ ] **3A. Phone performance.** Lane A. Using `?debug` numbers the user reads on their phone and laptop, add quality tiers (pixel ratio, shadow map size, post on/off, scatter density), picked automatically and switchable with `?quality=low|mid|high`. Files: new `src/quality.js`, small hooks in `src/main.js`, `src/post.js`, `src/scatter.js`.
+- [x] **3A. Phone performance.** Lane A. Using `?debug` numbers the user reads on their phone and laptop, add quality tiers (pixel ratio, shadow map size, post on/off, scatter density), picked automatically and switchable with `?quality=low|mid|high`. Files: new `src/quality.js`, small hooks in `src/main.js`, `src/post.js`, `src/scatter.js`.
   *Done when:* the check runs once per tier and screenshots all three; the user reports phone FPS in LOG.md.
-
+ (Built 2026-10-16; phone FPS per tier still to be reported by the user.)
 - [x] **3B. Start and end screens, counter.** Lane B. Style the start screen, lantern counter and end screen to match the look (title, a one-line hint per device: "WASD + drag" vs "joystick + drag"), and a credits line. Files: `index.html`, `src/style.css`, `src/ending.js` (screen part only).
   *Done when:* laptop and phone screenshots of start, play and end screens.
 

@@ -13,9 +13,14 @@ export function rng(seed) {
   };
 }
 
+// Quality tiers thin the scatter by scaling every count (1 = full).
+let density = 1;
+export const setScatterDensity = (d) => { density = d; };
+
 // Pick `count` spots inside a circle, at least `gap` apart, skipping any the `reject` callback refuses.
 export function scatterPoints(rand, { count, gap, radius, minRadius = 0, reject }) {
   const pts = [];
+  count = Math.round(count * density);
   for (let tries = 0; pts.length < count && tries < count * 60; tries++) {
     const a = rand() * Math.PI * 2;
     const r = Math.sqrt(rand()) * radius;

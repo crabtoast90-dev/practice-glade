@@ -398,6 +398,35 @@ await run('props', { viewport: { width: 1280, height: 720 } }, async (page, name
   for (const k of ['rocks', 'trees', 'pines', 'snags', 'bushes', 'grass', 'flowers']) if (!(c[k] > 0)) failures.push(`[${name}] no ${k} placed`);
 });
 
+// Quality tiers: the same start view at low, mid and high; each tier's settings show in stateText.
+const tierStats = {};
+for (const tier of ['low', 'mid', 'high']) {
+  await run(`quality-${tier}`, { viewport: { width: 1280, height: 720 } }, async (page, name) => {
+    const url = new URL(base);
+    url.searchParams.set('test', '');
+    url.searchParams.set('quality', tier);
+    await page.goto(url.href.replace('test=', 'test'));
+    await page.waitForFunction(() => window.__game);
+    await page.waitForFunction(() => window.__game.state().player.animation !== 'loading');
+    await page.waitForFunction(() => window.__game.state().props.loaded);
+    await advance(page, 100);
+    await page.click('#start');
+    await advance(page, 300);
+    await shot(page, name, '1-start-view');
+    const s = await state(page);
+    const text = await page.evaluate(() => window.__game.stateText());
+    summaries.push(`## ${name}\n${text}`);
+    tierStats[tier] = s;
+    if (s.quality !== tier) failures.push(`[${name}] expected quality ${tier}, got ${s.quality}`);
+    const want = { low: 'off', mid: 'cheap', high: 'full' }[tier];
+    if (s.post !== want) failures.push(`[${name}] expected post ${want}, got ${s.post}`);
+  });
+}
+if (tierStats.low && tierStats.high) {
+  const n = (s) => s.props.counts.trees + s.props.counts.grass + s.props.counts.flowers;
+  if (!(n(tierStats.low) < n(tierStats.mid) && n(tierStats.mid) < n(tierStats.high))) failures.push('[quality] scatter did not thin out from high to low');
+}
+
 await browser.close();
 await server?.close();
 

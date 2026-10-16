@@ -29,11 +29,11 @@ const GradeShader = {
 
 // Tiers: 'full' (bloom + grade), 'cheap' (half-resolution bloom, no extra
 // buffers at full size; the phone default), 'off' (plain render, tone mapping only).
-// Pick one with ?post=full|cheap|off; otherwise touch devices get 'cheap'.
-export function pickPostTier(params) {
+// ?post=full|cheap|off overrides the tier the quality level (src/quality.js) picks.
+export function pickPostTier(params, quality) {
   const asked = params.get('post');
   if (asked === 'full' || asked === 'cheap' || asked === 'off') return asked;
-  return matchMedia('(pointer: coarse)').matches ? 'cheap' : 'full';
+  return quality.post;
 }
 
 export function createPost(renderer, scene, camera, tier) {

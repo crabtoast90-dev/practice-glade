@@ -9,17 +9,21 @@ import { createLanterns } from './lanterns.js';
 import { createEnding } from './ending.js';
 import { createAudio } from './audio.js';
 import { createPost, pickPostTier } from './post.js';
+import { pickQuality } from './quality.js';
+import { setScatterDensity } from './scatter.js';
 import { createProps } from './props.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
 const DEBUG = params.has('debug');
+const quality = pickQuality(params);
+setScatterDensity(quality.density);
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game');
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: TEST });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatio));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -29,10 +33,11 @@ renderer.toneMappingExposure = 1.05;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 1200);
 const world = createWorld(scene);
+world.sun.shadow.mapSize.set(quality.shadowMap, quality.shadowMap);
 const player = createPlayer(scene);
 const input = createInput(canvas, $('joystick'), $('stick'));
 const clock = createClock({ manual: TEST });
-const post = createPost(renderer, scene, camera, pickPostTier(params));
+const post = createPost(renderer, scene, camera, pickPostTier(params, quality));
 const debug = DEBUG ? createDebugOverlay($('fps'), renderer) : null;
 
 player.position.set(START.x, 0, START.z);
@@ -133,6 +138,7 @@ function state() {
     cameraYawDeg: deg(player.camYaw),
     camera: { distance: +player.cam.distance.toFixed(2), pitchDeg: deg(player.camPitch), pulledIn: player.cam.pulledIn, y: +camera.position.y.toFixed(2), groundBelow: +heightAt(camera.position.x, camera.position.z).toFixed(2) },
     audio: audio ? audio.status() : null,
+    quality: quality.name,
     post: post.tier,
     lanterns: `${lanterns.found}/${LANTERN_TOTAL}`,
     lanternsFound: lanterns.foundIds(),
@@ -154,7 +160,7 @@ function stateText() {
     `time: ${s.time}s (frame ${s.frame})`,
     `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving} animation=${s.player.animation} sprinting=${s.player.sprinting} airborne=${s.player.airborne}`,
     `camera: yaw=${s.cameraYawDeg}deg pitch=${s.camera.pitchDeg}deg distance=${s.camera.distance}m pulledIn=${s.camera.pulledIn} height=${s.camera.y}m (ground below ${s.camera.groundBelow}m)`,
-    `look: post-processing ${s.post}`,
+    `look: quality ${s.quality} (pixel ratio cap ${quality.pixelRatio}, shadow map ${quality.shadowMap}, scatter ${quality.density * 100}%), post-processing ${s.post}`,
     `lanterns: ${s.lanterns} (found: ${s.lanternsFound.join(',') || 'none'})`,
     `audio: ${audioText()}`,
     `props: ${s.props.loaded ? 'loaded' : 'loading'}, ${s.props.triangles} triangles (${Object.entries(s.props.counts).map(([k, v]) => `${v} ${k}`).join(', ')})`,
