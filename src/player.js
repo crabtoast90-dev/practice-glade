@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { heightAt } from './world.js';
 
 const WALK_SPEED = 4.5; // metres per second
@@ -9,21 +10,46 @@ const PITCH_MIN = -0.35;
 const PITCH_MAX = 0.9;
 const WORLD_LIMIT = 120;
 
-// Placeholder capsule; Day 1 swaps in the CC0 animated character.
+const MODEL_DIR = `${import.meta.env.BASE_URL}models/character/`;
+const FADE = 0.25; // seconds to blend between idle and walk
+
+// KayKit Ranger (CC0). The character file has no clips; idle and walk live in two shared-rig files.
 export function createPlayer(scene) {
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.35, 1.0, 4, 10),
-    new THREE.MeshStandardMaterial({ color: '#b5462f', flatShading: true, roughness: 0.9 }),
-  );
-  body.castShadow = true;
-  // A little "nose" so facing direction is visible.
-  const nose = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.15, 0.25),
-    new THREE.MeshStandardMaterial({ color: '#f1dcb0', flatShading: true }),
-  );
-  nose.position.set(0, 0.45, -0.35);
-  body.add(nose);
+  const body = new THREE.Group(); // origin at the feet
   scene.add(body);
+
+  const loader = new GLTFLoader();
+  let mixer = null;
+  const actions = {};
+  let current = null;
+  const load = (file) => loader.loadAsync(MODEL_DIR + file);
+  Promise.all([load('Ranger.glb'), load('Rig_Medium_General.glb'), load('Rig_Medium_MovementBasic.glb')]).then(
+    ([character, general, movement]) => {
+      const model = character.scene;
+      model.rotation.y = Math.PI; // model faces +Z; the game's 0 faces -Z
+      model.traverse((o) => {
+        if (o.isMesh) o.castShadow = true;
+      });
+      body.add(model);
+      mixer = new THREE.AnimationMixer(model);
+      const clip = (gltf, name) => THREE.AnimationClip.findByName(gltf.animations, name);
+      actions.idle = mixer.clipAction(clip(general, 'Idle_A'));
+      actions.walk = mixer.clipAction(clip(movement, 'Walking_A'));
+      current = actions.idle;
+      current.play();
+      mixer.update(0); // pose the idle frame so it never shows a T-pose
+      player.animation = 'idle';
+    },
+  );
+
+  function play(name) {
+    if (!mixer || player.animation === name) return;
+    const next = actions[name];
+    next.reset().play();
+    current.crossFadeTo(next, FADE, false);
+    current = next;
+    player.animation = name;
+  }
 
   const player = {
     mesh: body,
@@ -32,6 +58,7 @@ export function createPlayer(scene) {
     camYaw: 0,
     camPitch: 0.18,
     moving: false,
+    animation: 'loading', // idle | walk once the model is in
     update(dt, input) {
       const look = input.consumeLook();
       this.camYaw += look.yaw - input.turn * TURN_SPEED * dt;
@@ -56,8 +83,10 @@ export function createPlayer(scene) {
         this.facing += diff * Math.min(1, dt * 10);
       }
       this.position.y = heightAt(this.position.x, this.position.z);
-      body.position.set(this.position.x, this.position.y + 0.85, this.position.z);
+      body.position.copy(this.position);
       body.rotation.y = this.facing;
+      play(this.moving ? 'walk' : 'idle');
+      mixer?.update(dt);
     },
     placeCamera(camera) {
       const cp = Math.cos(this.camPitch);

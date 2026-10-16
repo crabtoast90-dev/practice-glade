@@ -9,7 +9,7 @@ Each item can be pasted alone into a fresh builder session. Every session reads 
 
 ## Day 1: grey box
 
-- [ ] **1A. Character.** Lane A. Replace the placeholder capsule with a free CC0 animated character (Quaternius "Universal Animation Library" or a KayKit character pack, GLB). Idle when still, walk when moving, blended; faces the movement direction; feet on the ground. Put the model in `public/models/character/`, add it to `CREDITS.md` with its license link. Files: `src/player.js`, `public/models/character/`, `CREDITS.md`.
+- [x] **1A. Character.** Lane A. Replace the placeholder capsule with a free CC0 animated character (Quaternius "Universal Animation Library" or a KayKit character pack, GLB). Idle when still, walk when moving, blended; faces the movement direction; feet on the ground. Put the model in `public/models/character/`, add it to `CREDITS.md` with its license link. Files: `src/player.js`, `public/models/character/`, `CREDITS.md`.
   *Done when:* the check's screenshots show the character mid-walk on laptop and phone, `stateText()` reports the current animation, no console errors.
 
 - [ ] **1B. Valley layout.** Lane B. Shape the grey-box valley: a walkable bowl with a few paths, raised edges the player can't leave, one hill for the end vista, and five lantern spots that are hidden but findable (behind rocks, on a ledge, in a hollow, etc.). All positions live in one file. Grey boxes only, no art. Files: `src/world.js` (`heightAt` and terrain), new `src/level.js` (lantern spots, vista viewpoint, start point, bounds).

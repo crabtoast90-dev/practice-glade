@@ -81,7 +81,7 @@ function state() {
     screen: game.screen,
     time: +clock.time.toFixed(3),
     frame: clock.frame,
-    player: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), facingDeg: deg(player.facing), moving: player.moving },
+    player: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), facingDeg: deg(player.facing), moving: player.moving, animation: player.animation },
     cameraYawDeg: deg(player.camYaw),
     lanterns: `${game.lanternsFound}/${LANTERN_TOTAL}`,
   };
@@ -91,7 +91,7 @@ function stateText() {
   return [
     `screen: ${s.screen}`,
     `time: ${s.time}s (frame ${s.frame})`,
-    `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving}`,
+    `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving} animation=${s.player.animation}`,
     `camera yaw: ${s.cameraYawDeg}deg`,
     `lanterns: ${s.lanterns}`,
   ].join('\n');

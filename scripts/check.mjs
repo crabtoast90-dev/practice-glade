@@ -58,6 +58,7 @@ async function run(name, contextOptions, script) {
   url.searchParams.set('test', '');
   await page.goto(url.href.replace('test=', 'test'));
   await page.waitForFunction(() => window.__game);
+  await page.waitForFunction(() => window.__game.state().player.animation !== 'loading'); // character model loaded
   await script(page, name);
   await context.close();
 }
@@ -80,8 +81,18 @@ await run('laptop', { viewport: { width: 1280, height: 720 } }, async (page, nam
   const before = await state(page);
   await page.click('#start');
   await advance(page, 100);
-  await hold(page, 'KeyW', 1500); // walk forward
-  await shot(page, name, '2-walked');
+  const idle = await state(page);
+  await page.keyboard.down('KeyW');
+  await advance(page, 1500); // walk forward
+  await shot(page, name, '2-mid-walk');
+  const walking = await state(page);
+  await page.keyboard.up('KeyW');
+  await advance(page, 600);
+  const stopped = await state(page);
+  await shot(page, name, '2b-stopped');
+  if (idle.player.animation !== 'idle') failures.push(`[${name}] expected idle at start, got ${idle.player.animation}`);
+  if (walking.player.animation !== 'walk') failures.push(`[${name}] expected walk while moving, got ${walking.player.animation}`);
+  if (stopped.player.animation !== 'idle') failures.push(`[${name}] expected idle after stopping, got ${stopped.player.animation}`);
   // turn: drag the mouse to the left
   await page.mouse.move(640, 360);
   await page.mouse.down();
@@ -113,8 +124,10 @@ await run('phone', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2
   await touch('pointerdown', cx, cy);
   await touch('pointermove', cx, cy - 60);
   await advance(page, 1500);
+  await shot(page, name, '1-mid-walk');
+  const walking = await state(page);
+  if (walking.player.animation !== 'walk') failures.push(`[${name}] expected walk while moving, got ${walking.player.animation}`);
   await touch('pointerup', cx, cy - 60);
-  await shot(page, name, '1-walked');
   const after = await state(page);
   const text = await page.evaluate(() => window.__game.stateText());
   summaries.push(`## ${name}\n${text}`);
