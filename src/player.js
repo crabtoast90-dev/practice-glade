@@ -1,19 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { heightAt } from './world.js';
+import { createCameraRig } from './camera.js';
 
 const WALK_SPEED = 4.5; // metres per second
 const TURN_SPEED = 2.2; // radians per second (keyboard turn)
-const CAM_DIST = 6.5;
-const CAM_HEIGHT = 1.6;
-const PITCH_MIN = -0.35;
-const PITCH_MAX = 0.9;
+const SPRINT_SPEED = 8; // metres per second while Shift is held
+const JUMP_SPEED = 6.2; // upward metres per second at take-off
+const GRAVITY = 18;
 const WORLD_LIMIT = 120;
 
 const MODEL_DIR = `${import.meta.env.BASE_URL}models/character/`;
 const FADE = 0.25; // seconds to blend between idle and walk
 
-// KayKit Ranger (CC0). The character file has no clips; idle and walk live in two shared-rig files.
+// KayKit Ranger (CC0). The character file has no clips; they live in two shared-rig files.
 export function createPlayer(scene) {
   const body = new THREE.Group(); // origin at the feet
   scene.add(body);
@@ -35,6 +35,11 @@ export function createPlayer(scene) {
       const clip = (gltf, name) => THREE.AnimationClip.findByName(gltf.animations, name);
       actions.idle = mixer.clipAction(clip(general, 'Idle_A'));
       actions.walk = mixer.clipAction(clip(movement, 'Walking_A'));
+      actions.run = mixer.clipAction(clip(movement, 'Running_A'));
+      actions.jump = mixer.clipAction(clip(movement, 'Jump_Start'));
+      actions.jump.setLoop(THREE.LoopOnce, 1);
+      actions.jump.clampWhenFinished = true;
+      actions.air = mixer.clipAction(clip(movement, 'Jump_Idle'));
       current = actions.idle;
       current.play();
       mixer.update(0); // pose the idle frame so it never shows a T-pose
@@ -42,63 +47,86 @@ export function createPlayer(scene) {
     },
   );
 
+  let playedFor = 0; // seconds the current clip has been playing
   function play(name) {
     if (!mixer || player.animation === name) return;
     const next = actions[name];
     next.reset().play();
-    current.crossFadeTo(next, FADE, false);
+    current.crossFadeTo(next, name === 'jump' ? 0.08 : FADE, false);
     current = next;
     player.animation = name;
+    playedFor = 0;
   }
 
+  const cam = createCameraRig(scene);
   const player = {
     mesh: body,
     position: new THREE.Vector3(0, 0, 0),
     facing: 0, // radians; 0 faces -Z
-    camYaw: 0,
-    camPitch: 0.18,
+    get camYaw() { return cam.yaw; },
+    get camPitch() { return cam.pitch; },
+    cam,
     moving: false,
-    animation: 'loading', // idle | walk once the model is in
+    sprinting: false,
+    airborne: false,
+    vy: 0,
+    animation: 'loading', // idle | walk | run | jump | air once the model is in
     update(dt, input) {
-      const look = input.consumeLook();
-      this.camYaw += look.yaw - input.turn * TURN_SPEED * dt;
-      this.camPitch = THREE.MathUtils.clamp(this.camPitch - look.pitch, PITCH_MIN, PITCH_MAX);
+      cam.update(dt, this.position, input.consumeLook(), -input.turn * TURN_SPEED * dt);
 
       const { x, y } = input.move;
       const len = Math.min(1, Math.hypot(x, y));
       this.moving = len > 0.05;
+      this.sprinting = this.moving && input.sprint;
+      const speed = this.sprinting ? SPRINT_SPEED : WALK_SPEED;
       if (this.moving) {
         // Move relative to where the camera looks.
-        const sin = Math.sin(this.camYaw);
-        const cos = Math.cos(this.camYaw);
+        const sin = Math.sin(cam.yaw);
+        const cos = Math.cos(cam.yaw);
         const fx = -sin, fz = -cos; // camera forward on the ground
         const rx = cos, rz = -sin; // camera right
         const dx = (fx * y + rx * x) / Math.max(len, 1e-6) * len;
         const dz = (fz * y + rz * x) / Math.max(len, 1e-6) * len;
-        this.position.x = THREE.MathUtils.clamp(this.position.x + dx * WALK_SPEED * dt, -WORLD_LIMIT, WORLD_LIMIT);
-        this.position.z = THREE.MathUtils.clamp(this.position.z + dz * WALK_SPEED * dt, -WORLD_LIMIT, WORLD_LIMIT);
+        this.position.x = THREE.MathUtils.clamp(this.position.x + dx * speed * dt, -WORLD_LIMIT, WORLD_LIMIT);
+        this.position.z = THREE.MathUtils.clamp(this.position.z + dz * speed * dt, -WORLD_LIMIT, WORLD_LIMIT);
         const target = Math.atan2(-dx, -dz);
         let diff = target - this.facing;
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
         this.facing += diff * Math.min(1, dt * 10);
       }
-      this.position.y = heightAt(this.position.x, this.position.z);
+      const jumpAsked = input.consumeJump();
+      const ground = heightAt(this.position.x, this.position.z);
+      if (jumpAsked && !this.airborne) {
+        this.airborne = true;
+        this.vy = JUMP_SPEED;
+        this.position.y = Math.max(this.position.y, ground);
+      }
+      if (this.airborne) {
+        this.vy -= GRAVITY * dt;
+        this.position.y += this.vy * dt;
+        if (this.position.y <= ground && this.vy <= 0) {
+          this.position.y = ground;
+          this.airborne = false;
+          this.vy = 0;
+        }
+      } else {
+        this.position.y = ground;
+      }
       body.position.copy(this.position);
       body.rotation.y = this.facing;
-      play(this.moving ? 'walk' : 'idle');
+      if (this.airborne) {
+        // Take-off clip once, then the hanging pose until we land.
+        if (this.animation !== 'jump' && this.animation !== 'air') play('jump');
+        else if (this.animation === 'jump' && playedFor > 0.25) play('air');
+      } else {
+        play(this.sprinting ? 'run' : this.moving ? 'walk' : 'idle');
+      }
+      playedFor += dt;
       mixer?.update(dt);
     },
     placeCamera(camera) {
-      const cp = Math.cos(this.camPitch);
-      const pivot = new THREE.Vector3(this.position.x, this.position.y + CAM_HEIGHT, this.position.z);
-      camera.position.set(
-        pivot.x + Math.sin(this.camYaw) * cp * CAM_DIST,
-        pivot.y + Math.sin(this.camPitch) * CAM_DIST,
-        pivot.z + Math.cos(this.camYaw) * cp * CAM_DIST,
-      );
-      const groundY = heightAt(camera.position.x, camera.position.z) + 0.5;
-      if (camera.position.y < groundY) camera.position.y = groundY;
-      camera.lookAt(pivot);
+      if (!cam.ready) cam.update(0, this.position); // first frame, before any game step
+      cam.place(camera);
     },
   };
   return player;

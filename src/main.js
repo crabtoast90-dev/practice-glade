@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createClock, STEP } from './clock.js';
 import { createInput } from './input.js';
-import { createWorld } from './world.js';
+import { createWorld, heightAt } from './world.js';
 import { createPlayer } from './player.js';
 import { createDebugOverlay } from './debug.js';
 import { START, BOUNDS, LANTERN_SPOTS, clampToBounds } from './level.js';
@@ -126,8 +126,9 @@ function state() {
     screen: game.screen,
     time: +clock.time.toFixed(3),
     frame: clock.frame,
-    player: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), facingDeg: deg(player.facing), moving: player.moving, animation: player.animation },
+    player: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), facingDeg: deg(player.facing), moving: player.moving, animation: player.animation, sprinting: player.sprinting, airborne: player.airborne },
     cameraYawDeg: deg(player.camYaw),
+    camera: { distance: +player.cam.distance.toFixed(2), pitchDeg: deg(player.camPitch), pulledIn: player.cam.pulledIn, y: +camera.position.y.toFixed(2), groundBelow: +heightAt(camera.position.x, camera.position.z).toFixed(2) },
     lanterns: `${lanterns.found}/${LANTERN_TOTAL}`,
     lanternsFound: lanterns.foundIds(),
     distFromCentre: +Math.hypot(p.x, p.z).toFixed(2),
@@ -138,8 +139,8 @@ function stateText() {
   return [
     `screen: ${s.screen}`,
     `time: ${s.time}s (frame ${s.frame})`,
-    `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving} animation=${s.player.animation}`,
-    `camera yaw: ${s.cameraYawDeg}deg`,
+    `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving} animation=${s.player.animation} sprinting=${s.player.sprinting} airborne=${s.player.airborne}`,
+    `camera: yaw=${s.cameraYawDeg}deg pitch=${s.camera.pitchDeg}deg distance=${s.camera.distance}m pulledIn=${s.camera.pulledIn} height=${s.camera.y}m (ground below ${s.camera.groundBelow}m)`,
     `lanterns: ${s.lanterns} (found: ${s.lanternsFound.join(',') || 'none'})`,
     `valley: ${LANTERN_SPOTS.length} lantern spots, walkable radius ${BOUNDS.radius}m, player ${s.distFromCentre}m from centre`,
   ].join('\n');
@@ -154,6 +155,16 @@ window.__game = {
     if (!TEST) return;
     const spot = LANTERN_SPOTS.find((l) => l.id === id);
     player.position.set(spot.x, 0, spot.z);
+  },
+  // Test-only: stand somewhere and face a direction (degrees; pitch is camera elevation).
+  teleport(x, z, yawDeg, pitchDeg) {
+    player.position.set(x, heightAt(x, z), z);
+    player.cam.yaw = THREE.MathUtils.degToRad(yawDeg);
+    player.cam.pitch = THREE.MathUtils.degToRad(pitchDeg);
+    player.cam.snap();
+    player.update(0, input);
+    render();
+    return state();
   },
   overhead(on) {
     setOverhead(on);

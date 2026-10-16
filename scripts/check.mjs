@@ -122,11 +122,51 @@ await run('phone', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2
   const touch = (type, x, y) =>
     page.dispatchEvent('#game', type, { pointerType: 'touch', pointerId: 7, clientX: x, clientY: y, isPrimary: true, bubbles: true });
   await touch('pointerdown', cx, cy);
-  await touch('pointermove', cx, cy - 60);
+  await touch('pointermove', cx, cy - 35); // a gentle push walks; a full push sprints
   await advance(page, 1500);
   await shot(page, name, '1-mid-walk');
   const walking = await state(page);
   if (walking.player.animation !== 'walk') failures.push(`[${name}] expected walk while moving, got ${walking.player.animation}`);
+  // Second finger on the right drags the view while the joystick is still held.
+  const touch2 = (type, x, y) =>
+    page.dispatchEvent('#game', type, { pointerType: 'touch', pointerId: 8, clientX: x, clientY: y, isPrimary: false, bubbles: true });
+  const yawBefore = (await state(page)).cameraYawDeg;
+  await touch2('pointerdown', 300, 400);
+  for (let i = 1; i <= 8; i++) {
+    await touch2('pointermove', 300 - i * 15, 400);
+    await advance(page, 100);
+  }
+  const both = await state(page);
+  await shot(page, name, '2-two-touches');
+  await touch2('pointerup', 180, 400);
+  await touch('pointermove', cx, cy - 35);
+  if (both.cameraYawDeg === yawBefore) failures.push(`[${name}] second finger did not turn the view`);
+  if (!both.player.moving) failures.push(`[${name}] joystick stopped working while the second finger dragged`);
+  // Joystick dead zone: a tiny nudge must not move the player.
+  await touch('pointermove', cx, cy);
+  await advance(page, 200);
+  await touch('pointermove', cx + 6, cy);
+  const nudged = await state(page);
+  await advance(page, 500);
+  const nudgedLater = await state(page);
+  if (nudgedLater.player.x !== nudged.player.x || nudgedLater.player.z !== nudged.player.z) failures.push(`[${name}] a tiny joystick nudge moved the player (no dead zone)`);
+  // Full push sprints.
+  await touch('pointermove', cx, cy - 60);
+  await advance(page, 700);
+  const sprintState = await state(page);
+  if (!sprintState.player.sprinting || sprintState.player.animation !== 'run') failures.push(`[${name}] full joystick push did not sprint (${sprintState.player.animation})`);
+  // Jump button.
+  await touch('pointerup', cx, cy - 60);
+  await advance(page, 300);
+  await page.locator('#jump').waitFor({ state: 'visible' });
+  await page.dispatchEvent('#jump', 'pointerdown', { pointerType: 'touch', pointerId: 9, bubbles: true });
+  await advance(page, 300);
+  const jumped = await state(page);
+  await shot(page, name, '3-jump');
+  if (!jumped.player.airborne) failures.push(`[${name}] jump button did not make the player jump`);
+  await touch('pointerdown', cx, cy);
+  await touch('pointermove', cx, cy - 60);
+  await advance(page, 200);
   await touch('pointerup', cx, cy - 60);
   const after = await state(page);
   const text = await page.evaluate(() => window.__game.stateText());
@@ -197,6 +237,59 @@ await run('lanterns', { viewport: { width: 1280, height: 720 } }, async (page, n
   await advance(page, 100);
   const again = await state(page);
   if (again.screen !== 'playing' || again.lanterns !== '0/5') failures.push(`[${name}] play again did not reset (${again.screen}, ${again.lanterns})`);
+});
+
+// Controls: sprint, jump, and a camera that stays out of rocks and terrain.
+await run('controls', { viewport: { width: 1280, height: 720 } }, async (page, name) => {
+  await advance(page, 100);
+  await page.click('#start');
+  await advance(page, 100);
+  // Sprint covers more ground than walking in the same time.
+  const a0 = await state(page);
+  await hold(page, 'KeyW', 1000);
+  const a1 = await state(page);
+  await page.keyboard.down('ShiftLeft');
+  await hold(page, 'KeyW', 1000);
+  const sprinting = await state(page);
+  await shot(page, name, '1-sprint');
+  await page.keyboard.up('ShiftLeft');
+  const walked = Math.hypot(a1.player.x - a0.player.x, a1.player.z - a0.player.z);
+  const ran = Math.hypot(sprinting.player.x - a1.player.x, sprinting.player.z - a1.player.z);
+  if (ran < walked * 1.4) failures.push(`[${name}] sprint not faster than walking (${ran.toFixed(1)}m vs ${walked.toFixed(1)}m)`);
+  if (sprinting.player.animation !== 'run') failures.push(`[${name}] expected run animation while sprinting, got ${sprinting.player.animation}`);
+  // Jump: leaves the ground with Space, lands again.
+  await advance(page, 600);
+  const g0 = await state(page);
+  await page.keyboard.press('Space');
+  await advance(page, 350);
+  const up = await state(page);
+  await shot(page, name, '2-jump');
+  await advance(page, 1500);
+  const down = await state(page);
+  if (!up.player.airborne || up.player.y < g0.player.y + 0.5) failures.push(`[${name}] Space did not lift the player (${g0.player.y} -> ${up.player.y})`);
+  if (up.player.animation !== 'jump' && up.player.animation !== 'air') failures.push(`[${name}] expected a jump animation in the air, got ${up.player.animation}`);
+  if (down.player.airborne) failures.push(`[${name}] player never landed`);
+  // Drag the view into a boulder: stand just behind it and swing the camera around with the mouse.
+  await page.evaluate(() => window.__game.teleport(5, 54.5, -60, 6));
+  const clear = await state(page);
+  await page.mouse.move(700, 360);
+  await page.mouse.down();
+  await page.mouse.move(700 - 327, 360, { steps: 12 }); // left drag swings the view 60 degrees round, into the boulder
+  await page.mouse.up();
+  await advance(page, 400);
+  const blocked = await state(page);
+  await shot(page, name, '3-view-dragged-into-rock');
+  summaries.push(`## ${name}\n${await page.evaluate(() => window.__game.stateText())}`);
+  if (clear.camera.pulledIn) failures.push(`[${name}] camera pulled in with nothing in the way`);
+  if (!blocked.camera.pulledIn || blocked.camera.distance > 4.5) failures.push(`[${name}] camera did not pull in before the rock (distance ${blocked.camera.distance}m)`);
+  // Low camera against a slope never ends up under the ground.
+  for (const [x, z, yaw] of [[-55, -8, 90], [-30, 0, 270], [60, -60, 0]]) {
+    await page.evaluate(([px, pz, py]) => window.__game.teleport(px, pz, py, -20), [x, z, yaw]);
+    await advance(page, 300);
+    const low = await state(page);
+    if (low.camera.y < low.camera.groundBelow) failures.push(`[${name}] camera went under the ground at ${x},${z}`);
+  }
+  await shot(page, name, '4-low-camera-slope');
 });
 
 await browser.close();
