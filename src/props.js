@@ -5,13 +5,17 @@ import { START, BOUNDS, LANTERN_SPOTS, VISTA, pathMask } from './level.js';
 
 const MODEL_DIR = `${import.meta.env.BASE_URL}models/props/`;
 
-// Each prop: file, height in metres once placed, and how many go in the valley.
-const KINDS = {
-  pine: { files: ['pine_1', 'pine_2', 'pine_3'], height: [7, 11], count: 54, trunk: 0.5 },
-  snag: { files: ['snag_1', 'snag_2'], height: [3.5, 5.5], count: 10, trunk: 0.4 },
-  grass: { files: ['grass'], height: [0.7, 1.1], count: 70 },
-  flowers: { files: ['flowers'], height: [0.5, 0.8], count: 36 },
-};
+// What goes in the valley. Trees, dead trees, bushes, grass and flowers are from the Quaternius
+// "Ultimate Stylized Nature" pack (CC0); pines, rocks and the lantern are Meshy (tools/meshy-prop.sh).
+// height: metres once placed. gap: minimum spacing. trunk: collision radius (trees block the player).
+const KINDS = [
+  { name: 'trees', files: ['birch_1', 'birch_2', 'birch_3', 'maple_1', 'maple_2', 'maple_3', 'maple_4'], height: [6, 10], count: 28, gap: 6, trunk: 0.5, shadow: true },
+  { name: 'pines', files: ['pine_1', 'pine_2', 'pine_3'], height: [7, 11], count: 14, gap: 6, trunk: 0.5, shadow: true },
+  { name: 'snags', files: ['dead_1', 'dead_2', 'dead_3', 'dead_4', 'dead_5'], height: [3, 5], count: 10, gap: 10, trunk: 0.4, shadow: true },
+  { name: 'bushes', files: ['bush_1', 'bush_2', 'bush_3'], height: [0.9, 1.5], count: 46, gap: 3, shadow: true },
+  { name: 'grass', files: ['grass_1', 'grass_2', 'grass_3'], height: [0.5, 0.9], count: 150, gap: 1.6 },
+  { name: 'flowers', files: ['flower_1', 'flower_2', 'flower_3', 'flower_4', 'flower_5'], height: [0.4, 0.7], count: 90, gap: 2.2 },
+];
 
 // Seeded so every run (and every check screenshot) places the same props.
 function rng(seed) {
@@ -46,7 +50,7 @@ function countTriangles(root) {
   return n;
 }
 
-// Meshy props (see tools/meshy-prop.sh) placed along the layout from level.js.
+// Props placed along the layout from level.js.
 // Pines and snags also block the player, using the same push-out list as rocks.
 export function createProps(scene) {
   const group = new THREE.Group();
@@ -89,13 +93,8 @@ export function createProps(scene) {
   };
 
   const ready = (async () => {
-    const [pines, snags, grasses, flowers, rocks] = await Promise.all([
-      prepare(KINDS.pine.files),
-      prepare(KINDS.snag.files),
-      prepare(KINDS.grass.files),
-      prepare(KINDS.flowers.files),
-      prepare(['rock_1', 'rock_2', 'rock_3']),
-    ]);
+    const rockFiles = ['rock_1', 'rock_2', 'rock_3'];
+    const [rocks, ...sets] = await Promise.all([prepare(rockFiles), ...KINDS.map((k) => prepare(k.files))]);
 
     // Swap the grey-box rocks for the real ones, at the same spots and sizes (so collision still fits).
     const greyRocks = scene.children.find((c) => c.isGroup && c.children.length && c.children.every((m) => m.geometry?.type === 'DodecahedronGeometry'));
@@ -108,31 +107,28 @@ export function createProps(scene) {
     stats.counts.rocks = ROCK_BLOCKERS.length;
 
     const rand = rng(20261016);
-    const scatter = (name, templates, kind, minGap, shadow, blocks) => {
-      const tpl = templates.map((t) => normalise(t, 1));
+    const spotRocks = ROCK_BLOCKERS.slice(); // rocks only; trees pushed below are not checked against
+    KINDS.forEach((kind, ki) => {
+      const tpl = sets[ki].map((t) => normalise(t, 1));
       const placed = [];
       let tries = 0;
-      while (placed.length < kind.count && tries++ < 4000) {
+      while (placed.length < kind.count && tries++ < 6000) {
         const a = rand() * Math.PI * 2;
         const r = Math.sqrt(rand()) * BOUNDS.radius * 0.95;
-        if (blocks && r < 14) continue; // trees stay out of the middle so the start view is open
+        if (kind.trunk && r < 14) continue; // trees stay out of the middle so the start view is open
         const x = Math.cos(a) * r;
         const z = Math.sin(a) * r;
-        if (keepClear(x, z, blocks ? 1.5 : 0)) continue;
-        if (ROCK_BLOCKERS.some((b) => !b.prop && Math.hypot(x - b.x, z - b.z) < b.r + 1.5)) continue;
-        if (placed.some((p) => Math.hypot(x - p[0], z - p[1]) < minGap)) continue;
+        if (keepClear(x, z, kind.trunk ? 1.5 : 0)) continue;
+        if (spotRocks.some((b) => Math.hypot(x - b.x, z - b.z) < b.r + 1.2)) continue;
+        if (placed.some((p) => Math.hypot(x - p[0], z - p[1]) < kind.gap)) continue;
         const t = tpl[Math.floor(rand() * tpl.length)];
         const h = kind.height[0] + rand() * (kind.height[1] - kind.height[0]);
-        place(t, x, z, h * t.userData.unit, rand() * Math.PI * 2, shadow);
+        place(t, x, z, h * t.userData.unit, rand() * Math.PI * 2, kind.shadow);
         placed.push([x, z]);
-        if (blocks) ROCK_BLOCKERS.push({ x, z, r: kind.trunk, prop: true });
+        if (kind.trunk) ROCK_BLOCKERS.push({ x, z, r: kind.trunk, prop: true });
       }
-      stats.counts[name] = placed.length;
-    };
-    scatter('pines', pines, KINDS.pine, 5, true, true);
-    scatter('snags', snags, KINDS.snag, 12, true, true);
-    scatter('grass', grasses, KINDS.grass, 2.5, false, false);
-    scatter('flowers', flowers, KINDS.flowers, 4, false, false);
+      stats.counts[kind.name] = placed.length;
+    });
     stats.ready = true;
   })();
 

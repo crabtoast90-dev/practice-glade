@@ -388,7 +388,7 @@ await run('props', { viewport: { width: 1280, height: 720 } }, async (page, name
   summaries.push(`## ${name}\n${text}`);
   const c = start.props.counts;
   if (!(start.props.triangles > 1000)) failures.push(`[${name}] props triangle count missing (${start.props.triangles})`);
-  for (const k of ['rocks', 'pines', 'snags', 'grass', 'flowers']) if (!(c[k] > 0)) failures.push(`[${name}] no ${k} placed`);
+  for (const k of ['rocks', 'trees', 'pines', 'snags', 'bushes', 'grass', 'flowers']) if (!(c[k] > 0)) failures.push(`[${name}] no ${k} placed`);
 });
 
 await browser.close();

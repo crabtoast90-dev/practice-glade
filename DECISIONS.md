@@ -12,3 +12,4 @@ One dated line per decision the user makes.
 - 2026-10-16: Valley wall should be low enough to see the mountains beyond it; paths must be clearly visible.
 - 2026-10-16: Shift sprint is 3x walking speed for fast playtesting; walking speed stays as is. Rocks block the player.
 - 2026-10-16: Sprint should be 3x walk speed.
+- 2026-10-16: Props: use the Quaternius pack (birch and maple) for trees plus a few Meshy pines; keep Meshy rocks.
