@@ -94,7 +94,7 @@ export function createPlayer(scene) {
         diff = Math.atan2(Math.sin(diff), Math.cos(diff));
         this.facing += diff * Math.min(1, dt * 10);
       }
-      const jumpAsked = input.consumeJump();
+      const jumpAsked = input.consumeJump?.();
       const ground = heightAt(this.position.x, this.position.z);
       if (jumpAsked && !this.airborne) {
         this.airborne = true;
