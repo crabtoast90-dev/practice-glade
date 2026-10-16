@@ -317,6 +317,24 @@ await run('rocks', { viewport: { width: 1280, height: 720 } }, async (page, name
   if (dist < 11) failures.push(`[${name}] sprint too slow: ${dist.toFixed(1)}m in 1s`);
 });
 
+// Sound: the audio context runs after the start tap and every sound loads.
+await run('audio', { viewport: { width: 1280, height: 720 } }, async (page, name) => {
+  await advance(page, 100);
+  const before = await state(page);
+  if (before.audio) failures.push(`[${name}] audio started before the tap`);
+  await page.click('#start');
+  await page.waitForFunction(() => window.__game.state().audio?.loaded.length === 7, null, { timeout: 15000 }).catch(() => {});
+  await advance(page, 100);
+  const a = (await state(page)).audio;
+  summaries.push(`## ${name}\n${await page.evaluate(() => window.__game.stateText())}`);
+  if (!a) failures.push(`[${name}] audio did not start after the tap`);
+  else {
+    if (a.state !== 'running') failures.push(`[${name}] audio context is ${a.state}, expected running`);
+    if (Object.keys(a.failed).length) failures.push(`[${name}] sounds failed to load: ${JSON.stringify(a.failed)}`);
+    if (a.loaded.length !== 7) failures.push(`[${name}] only ${a.loaded.length}/7 sounds loaded`);
+  }
+});
+
 await browser.close();
 await server?.close();
 

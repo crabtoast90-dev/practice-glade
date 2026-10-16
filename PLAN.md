@@ -32,7 +32,7 @@ Each item can be pasted alone into a fresh builder session. Every session reads 
 - [ ] **2C. Vegetation scatter and budget.** After 2B. Instance grass, flowers and trees across the valley with a seeded scatter; keep the start view under a set budget (draw calls < 150, triangles < 300k). Files: `src/props.js`, new `src/scatter.js`.
   *Done when:* `stateText()` reports draw calls and triangles under budget at the start and vista views; screenshots show a full valley.
 
-- [ ] **2D. Sound.** Lane C (any time after Day 1). CC0 ambient wind and birds loop, soft footsteps, a chime when a lantern is found, a swell for the ending. Starts on tap-to-start. Files: new `src/audio.js`, `public/audio/`, `CREDITS.md`.
+- [x] **2D. Sound.** Lane C (any time after Day 1). CC0 ambient wind and birds loop, soft footsteps, a chime when a lantern is found, a swell for the ending. Starts on tap-to-start. Files: new `src/audio.js`, `public/audio/`, `CREDITS.md`.
   *Done when:* the check confirms the audio context is running after the start tap and each sound loads without errors.
 
 ## Day 3: ship

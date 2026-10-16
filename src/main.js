@@ -7,6 +7,7 @@ import { createDebugOverlay } from './debug.js';
 import { START, BOUNDS, LANTERN_SPOTS, clampToBounds } from './level.js';
 import { createLanterns } from './lanterns.js';
 import { createEnding } from './ending.js';
+import { createAudio } from './audio.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -56,18 +57,10 @@ window.addEventListener('resize', resize);
 resize();
 
 // Tap to start: unlocks audio on phones (needs a user gesture) and shows the HUD.
-let audioCtx = null;
+let audio = null;
 $('start').addEventListener('click', () => {
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = audioCtx.createBufferSource();
-    src.buffer = audioCtx.createBuffer(1, 1, 22050);
-    src.connect(audioCtx.destination);
-    src.start();
-    audioCtx.resume();
-  } catch {
-    // No audio available; the game still runs.
-  }
+  audio = createAudio();
+  audio.start();
   $('start').hidden = true;
   $('hud').hidden = false;
   if (matchMedia('(pointer: coarse)').matches) $('joystick').hidden = false;
@@ -80,8 +73,10 @@ function step(dt) {
     player.update(dt, input);
     pushOutOfRocks(player.position);
     clampToBounds(player.position);
-    lanterns.update(player.position);
+    audio?.update(dt, player);
+    if (lanterns.update(player.position)) audio?.lanternFound();
     if (lanterns.found === LANTERN_TOTAL) {
+      audio?.ending();
       // Controls lock; the camera leaves from where the player was looking.
       player.placeCamera(camera);
       ending.start(camera, new THREE.Vector3(player.position.x, player.position.y + 1.6, player.position.z));
@@ -130,10 +125,17 @@ function state() {
     player: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), facingDeg: deg(player.facing), moving: player.moving, animation: player.animation, sprinting: player.sprinting, airborne: player.airborne },
     cameraYawDeg: deg(player.camYaw),
     camera: { distance: +player.cam.distance.toFixed(2), pitchDeg: deg(player.camPitch), pulledIn: player.cam.pulledIn, y: +camera.position.y.toFixed(2), groundBelow: +heightAt(camera.position.x, camera.position.z).toFixed(2) },
+    audio: audio ? audio.status() : null,
     lanterns: `${lanterns.found}/${LANTERN_TOTAL}`,
     lanternsFound: lanterns.foundIds(),
     distFromCentre: +Math.hypot(p.x, p.z).toFixed(2),
   };
+}
+function audioText() {
+  if (!audio) return 'not started';
+  const a = audio.status();
+  const failed = Object.entries(a.failed).map(([k, v]) => `${k} (${v})`);
+  return `context ${a.state}, loaded ${a.loaded.length}/7${failed.length ? `, FAILED ${failed.join(', ')}` : ''}`;
 }
 function stateText() {
   const s = state();
@@ -143,6 +145,7 @@ function stateText() {
     `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving} animation=${s.player.animation} sprinting=${s.player.sprinting} airborne=${s.player.airborne}`,
     `camera: yaw=${s.cameraYawDeg}deg pitch=${s.camera.pitchDeg}deg distance=${s.camera.distance}m pulledIn=${s.camera.pulledIn} height=${s.camera.y}m (ground below ${s.camera.groundBelow}m)`,
     `lanterns: ${s.lanterns} (found: ${s.lanternsFound.join(',') || 'none'})`,
+    `audio: ${audioText()}`,
     `valley: ${LANTERN_SPOTS.length} lantern spots, walkable radius ${BOUNDS.radius}m, player ${s.distFromCentre}m from centre`,
   ].join('\n');
 }
