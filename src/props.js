@@ -102,7 +102,9 @@ export function createProps(scene) {
     const rockTemplates = rocks.map((r) => normalise(r, 1));
     ROCK_BLOCKERS.forEach((b, i) => {
       const t = rockTemplates[i % rockTemplates.length];
-      place(t, b.x, b.z, (b.r / 0.9) * 1.1 * t.userData.unit, i * 1.7, true); // about as tall as the grey rock was
+      // Size by footprint, not height, so the rock's visible edge sits on its collision circle (blocker radius b.r).
+      const wide = Math.max(t.userData.size.x, t.userData.size.z);
+      place(t, b.x, b.z, ((2 * b.r * 1.05) / wide) * t.userData.unit, i * 1.7, true);
     });
     stats.counts.rocks = ROCK_BLOCKERS.length;
 
