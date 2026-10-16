@@ -10,8 +10,9 @@ const CSS = `
 #ending { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 1rem;
   padding-bottom: 12vh; pointer-events: none; color: #fff4dc; font-family: Georgia, serif; opacity: 0; transition: opacity 2s ease; }
 #ending.show { opacity: 1; pointer-events: auto; }
-#ending .title { font-size: clamp(2rem, 7vw, 4rem); letter-spacing: .08em; text-shadow: 0 2px 14px rgba(0,0,0,.55); }
-#ending button { border: 1px solid rgba(255,244,220,.6); background: rgba(20,40,44,.35); color: inherit; font: 1.1rem Georgia, serif;
+#ending .title { font-size: clamp(2.2rem, 8vw, 4.6rem); letter-spacing: .12em; text-transform: uppercase; text-shadow: 0 2px 16px rgba(0,0,0,.55); }
+#ending .sub { font-size: clamp(1rem, 3vw, 1.3rem); font-style: italic; color: #ffd9a0; text-shadow: 0 1px 8px rgba(0,0,0,.55); margin-top: -.5rem; }
+#ending button { border: 1px solid rgba(255,244,220,.6); background: rgba(20,40,44,.45); color: inherit; font: 1.1rem Georgia, serif; letter-spacing: .06em;
   padding: .6rem 1.6rem; border-radius: 2rem; cursor: pointer; }
 `;
 
@@ -25,7 +26,7 @@ export function createEnding({ lanterns, onPlayAgain }) {
   const overlay = document.createElement('div');
   overlay.id = 'ending';
   overlay.hidden = true;
-  overlay.innerHTML = '<span class="title">The End</span><button type="button">Play again</button>';
+  overlay.innerHTML = '<span class="title">The End</span><span class="sub">All five lanterns are lit.</span><button type="button">Play again</button>';
   document.body.append(overlay);
   overlay.querySelector('button').addEventListener('click', () => onPlayAgain());
 
