@@ -5,7 +5,7 @@ import { createCameraRig } from './camera.js';
 
 const WALK_SPEED = 4.5; // metres per second
 const TURN_SPEED = 2.2; // radians per second (keyboard turn)
-const SPRINT_SPEED = 8; // metres per second while Shift is held
+const SPRINT_SPEED = 13.5; // metres per second while Shift is held (3x walk, for fast playtesting)
 const JUMP_SPEED = 6.2; // upward metres per second at take-off
 const GRAVITY = 18;
 const WORLD_LIMIT = 120;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createClock, STEP } from './clock.js';
 import { createInput } from './input.js';
-import { createWorld, heightAt } from './world.js';
+import { createWorld, heightAt, pushOutOfRocks } from './world.js';
 import { createPlayer } from './player.js';
 import { createDebugOverlay } from './debug.js';
 import { START, BOUNDS, LANTERN_SPOTS, clampToBounds } from './level.js';
@@ -78,6 +78,7 @@ function step(dt) {
   input.update();
   if (game.screen === 'playing') {
     player.update(dt, input);
+    pushOutOfRocks(player.position);
     clampToBounds(player.position);
     lanterns.update(player.position);
     if (lanterns.found === LANTERN_TOTAL) {

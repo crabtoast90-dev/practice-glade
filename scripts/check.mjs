@@ -292,6 +292,31 @@ await run('controls', { viewport: { width: 1280, height: 720 } }, async (page, n
   await shot(page, name, '4-low-camera-slope');
 });
 
+// Rocks block the player; Shift sprints at about 3x walking speed.
+await run('rocks', { viewport: { width: 1280, height: 720 } }, async (page, name) => {
+  await advance(page, 100);
+  await page.click('#start');
+  await advance(page, 100);
+  await page.evaluate(() => window.__game.teleport(-23, -12, 0, 10)); // due south of the big rock at (-23, -19)
+  await advance(page, 100);
+  await hold(page, 'KeyW', 3000); // walk straight at it (north, -Z)
+  const s = await state(page);
+  await shot(page, name, '1-against-rock');
+  const gap = Math.hypot(s.player.x + 23, s.player.z + 19);
+  if (gap < 2.0) failures.push(`[${name}] walked into the rock (${gap.toFixed(2)}m from its centre)`);
+  if (s.player.z < -17.5) failures.push(`[${name}] walked through the rock to z=${s.player.z}`);
+  await page.evaluate(() => window.__game.teleport(0, 0, 0, 10));
+  await advance(page, 100);
+  const a = await state(page);
+  await page.keyboard.down('ShiftLeft');
+  await hold(page, 'KeyW', 1000);
+  await page.keyboard.up('ShiftLeft');
+  const b = await state(page);
+  const dist = Math.hypot(b.player.x - a.player.x, b.player.z - a.player.z);
+  summaries.push(`## ${name}\nsprint covered ${dist.toFixed(1)}m in 1s; stopped ${gap.toFixed(2)}m from rock centre`);
+  if (dist < 11) failures.push(`[${name}] sprint too slow: ${dist.toFixed(1)}m in 1s`);
+});
+
 await browser.close();
 await server?.close();
 

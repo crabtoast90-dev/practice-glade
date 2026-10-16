@@ -47,6 +47,8 @@ Each item can be pasted alone into a fresh builder session. Every session reads 
   *Done when:* each note is ticked with a screenshot that shows the fix.
   - [x] 2026-10-16: Valley wall too tall, blocks the view of the mountains beyond it (lowered to about 9 m).
   - [x] 2026-10-16: Paths not visible at all (now pale sand on a finer terrain grid, wider).
+  - [x] 2026-10-16: Rocks have no collision, player walks through them (rocks now block; player slides around).
+  - [x] 2026-10-16: Need to move much faster for repeated testing (Shift sprint raised to 13.5 m/s, 3x walking; walking unchanged).
 
 - [ ] **3D. Release.** Last. Check the live site with `npm run check -- --url=https://crabtoast90-dev.github.io/practice-glade/`, confirm README link, CREDITS complete, LOG.md up to date.
   *Done when:* the live-site check passes and its screenshots are described in one line each.

@@ -110,23 +110,39 @@ function makeMountains() {
 }
 
 // A few grey-box boulders so movement and shadows are visible.
+// Every rock on the map as [x, z, size], scattered ones first. Used for drawing and for collision.
+const SCATTER_ROCKS = Array.from({ length: 24 }, (_, i) => {
+  const a = i * 2.399;
+  const r = 8 + (i * 7.3) % 40;
+  return [Math.cos(a) * r, Math.sin(a) * r, 0.8 + (i % 5) * 0.5];
+});
+export const ROCK_BLOCKERS = [...SCATTER_ROCKS, ...ROCKS].map(([x, z, s]) => ({ x, z, r: s * 0.9 }));
+
+// Push a position out of any rock it overlaps (mutates and returns it).
+export function pushOutOfRocks(pos) {
+  for (const b of ROCK_BLOCKERS) {
+    const dx = pos.x - b.x, dz = pos.z - b.z;
+    const d = Math.hypot(dx, dz);
+    if (d < b.r) {
+      const k = d > 1e-6 ? b.r / d : 0;
+      pos.x = b.x + (d > 1e-6 ? dx * k : b.r);
+      pos.z = b.z + (d > 1e-6 ? dz * k : 0);
+    }
+  }
+  return pos;
+}
+
 function makeRocks() {
   const group = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: PALETTE.rock, flatShading: true, roughness: 1 });
-  for (let i = 0; i < 24; i++) {
-    const a = i * 2.399;
-    const r = 8 + (i * 7.3) % 40;
-    const s = 0.8 + (i % 5) * 0.5;
+  SCATTER_ROCKS.forEach(([x, z, s], i) => {
     const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), mat);
-    const x = Math.cos(a) * r;
-    const z = Math.sin(a) * r;
     m.position.set(x, heightAt(x, z) + s * 0.4, z);
     m.rotation.set(i, i * 0.7, 0);
     m.scale.y = 0.7;
     m.castShadow = m.receiveShadow = true;
     group.add(m);
-  }
-  // Rocks that hide the lantern spots.
+  });
   ROCKS.forEach(([x, z, s], i) => {
     const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), mat);
     m.position.set(x, heightAt(x, z) + s * 0.45, z);
