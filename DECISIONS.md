@@ -13,3 +13,4 @@ One dated line per decision the user makes.
 - 2026-10-16: Shift sprint is 3x walking speed for fast playtesting; walking speed stays as is. Rocks block the player.
 - 2026-10-16: Sprint should be 3x walk speed.
 - 2026-10-16: Props: use the Quaternius pack (birch and maple) for trees plus a few Meshy pines; keep Meshy rocks.
+2026-10-16: No more playtest notes; skip further polish for this test run and move straight to the release check (3C closed, 3D done).

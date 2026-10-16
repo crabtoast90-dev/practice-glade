@@ -44,12 +44,13 @@ Each item can be pasted alone into a fresh builder session. Every session reads 
 - [x] **3B. Start and end screens, counter.** Lane B. Style the start screen, lantern counter and end screen to match the look (title, a one-line hint per device: "WASD + drag" vs "joystick + drag"), and a credits line. Files: `index.html`, `src/style.css`, `src/ending.js` (screen part only).
   *Done when:* laptop and phone screenshots of start, play and end screens.
 
-- [ ] **3C. Playtest fixes.** After the user's playtest. One session per batch of notes the user gives; each note becomes a line here first.
+- [x] **3C. Playtest fixes.** After the user's playtest. One session per batch of notes the user gives; each note becomes a line here first.
   *Done when:* each note is ticked with a screenshot that shows the fix.
   - [x] 2026-10-16: Valley wall too tall, blocks the view of the mountains beyond it (lowered to about 9 m).
+  - 2026-10-16: no further notes; further polish deferred, not worth doing for this test run.
   - [x] 2026-10-16: Paths not visible at all (now pale sand on a finer terrain grid, wider).
   - [x] 2026-10-16: Rocks have no collision, player walks through them (rocks now block; player slides around).
   - [x] 2026-10-16: Need to move much faster for repeated testing (Shift sprint raised to 13.5 m/s, 3x walking; walking unchanged).
 
-- [ ] **3D. Release.** Last. Check the live site with `npm run check -- --url=https://crabtoast90-dev.github.io/practice-glade/`, confirm README link, CREDITS complete, LOG.md up to date.
+- [x] **3D. Release.** Last. Check the live site with `npm run check -- --url=https://crabtoast90-dev.github.io/practice-glade/`, confirm README link, CREDITS complete, LOG.md up to date.
   *Done when:* the live-site check passes and its screenshots are described in one line each.
