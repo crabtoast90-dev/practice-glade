@@ -6,3 +6,4 @@ date | session | directing min | reviewing min | playing min | shipped/killed | 
 2026-10-16 | 1A character | 0 | 0 | 1 | shipped (KayKit Ranger, idle/walk blend) | no | 1 | 2 | check passes locally; no blockers
 2026-10-16 | 1B valley layout | 2 | 2 | 2 | shipped (bowl, paths, vista hill, 5 lantern spots, bounds; plus two playtest fixes: lower wall, visible paths) | no | 1 | 2 | check passes locally; also touched main.js and check.mjs for the done-check
 2026-10-16 | 1C lanterns and ending | 0 | 1 | 2 | shipped (5 lanterns, vista ending, end screen; then playtest fixes: rock collision, 3x sprint) | no | 2 | 2 | check passes locally
+2026-10-16 | 1D controls and camera | 0 | 0.5 | 0.3 | shipped (rock-safe follow camera, sprint, jump, phone jump button, joystick dead zone) | no | 2 | 2 | sprint raised to 3x walk by a parallel session; also touched main.js, check.mjs for the done-check
