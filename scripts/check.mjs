@@ -365,6 +365,32 @@ await run('look', { viewport: { width: 960, height: 540 } }, async (page, name) 
   await sheet.close();
 });
 
+// Props: trees, rocks, grass and flowers in place, seen from the start point and the vista.
+await run('props', { viewport: { width: 1280, height: 720 } }, async (page, name) => {
+  await page.waitForFunction(() => window.__game.state().props.loaded, null, { timeout: 60000 });
+  await page.click('#start');
+  await advance(page, 100);
+  await page.evaluate(() => window.__game.teleport(0, 0, 0, 8));
+  await advance(page, 100);
+  await shot(page, name, '1-start-point');
+  const start = await state(page);
+  await page.evaluate(() => window.__game.teleport(-14, 2, 70, 10));
+  await advance(page, 100);
+  await shot(page, name, '2-start-looking-west');
+  for (let id = 1; id <= 5; id++) {
+    await page.evaluate((i) => window.__game.teleportToLantern(i), id);
+    await advance(page, 100);
+  }
+  await advance(page, 6500);
+  await page.waitForTimeout(2300);
+  await shot(page, name, '3-vista');
+  const text = await page.evaluate(() => window.__game.stateText());
+  summaries.push(`## ${name}\n${text}`);
+  const c = start.props.counts;
+  if (!(start.props.triangles > 1000)) failures.push(`[${name}] props triangle count missing (${start.props.triangles})`);
+  for (const k of ['rocks', 'pines', 'snags', 'grass', 'flowers']) if (!(c[k] > 0)) failures.push(`[${name}] no ${k} placed`);
+});
+
 await browser.close();
 await server?.close();
 

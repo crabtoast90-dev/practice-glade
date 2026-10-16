@@ -9,6 +9,7 @@ import { createLanterns } from './lanterns.js';
 import { createEnding } from './ending.js';
 import { createAudio } from './audio.js';
 import { createPost, pickPostTier } from './post.js';
+import { createProps } from './props.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -35,6 +36,7 @@ const debug = DEBUG ? createDebugOverlay($('fps'), renderer) : null;
 
 player.position.set(START.x, 0, START.z);
 
+const props = createProps(scene);
 const lanterns = createLanterns(scene);
 const LANTERN_TOTAL = lanterns.total;
 const ending = createEnding({ lanterns, onPlayAgain: playAgain });
@@ -132,6 +134,7 @@ function state() {
     post: post.tier,
     lanterns: `${lanterns.found}/${LANTERN_TOTAL}`,
     lanternsFound: lanterns.foundIds(),
+    props: { loaded: props.loaded, triangles: props.triangles, counts: props.counts },
     distFromCentre: +Math.hypot(p.x, p.z).toFixed(2),
   };
 }
@@ -151,6 +154,7 @@ function stateText() {
     `look: post-processing ${s.post}`,
     `lanterns: ${s.lanterns} (found: ${s.lanternsFound.join(',') || 'none'})`,
     `audio: ${audioText()}`,
+    `props: ${s.props.loaded ? 'loaded' : 'loading'}, ${s.props.triangles} triangles (${Object.entries(s.props.counts).map(([k, v]) => `${v} ${k}`).join(', ')})`,
     `valley: ${LANTERN_SPOTS.length} lantern spots, walkable radius ${BOUNDS.radius}m, player ${s.distFromCentre}m from centre`,
   ].join('\n');
 }
