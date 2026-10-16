@@ -154,6 +154,51 @@ await run('valley', { viewport: { width: 1280, height: 720 } }, async (page, nam
   if (Math.hypot(pushed.player.x - atWall.player.x, pushed.player.z - atWall.player.z) > 0.05) failures.push(`[${name}] player kept sliding while pushed into the wall`);
 });
 
+// Lanterns and ending: find all five, then the camera rises to the vista and the end screen appears.
+await run('lanterns', { viewport: { width: 1280, height: 720 } }, async (page, name) => {
+  await advance(page, 100);
+  await page.click('#start');
+  await advance(page, 100);
+  const text = (p) => p.evaluate(() => window.__game.stateText());
+  const counter = (p) => p.textContent('#lanterns');
+  const zero = await state(page);
+  if (zero.lanterns !== '0/5') failures.push(`[${name}] expected 0/5 at start, got ${zero.lanterns}`);
+  for (let id = 1; id <= 5; id++) {
+    await page.evaluate((i) => window.__game.teleportToLantern(i), id);
+    await advance(page, 100);
+    const s = await state(page);
+    if (s.lanterns !== `${id}/5`) failures.push(`[${name}] after lantern ${id} expected ${id}/5, got ${s.lanterns}`);
+    if (id === 1) {
+      await shot(page, name, '1-counter-1of5');
+      if (!/^1 \/ 5$/.test(await counter(page))) failures.push(`[${name}] HUD counter not 1 / 5`);
+    }
+    if (id < 5 && s.screen !== 'playing') failures.push(`[${name}] screen should be playing at ${id}/5, got ${s.screen}`);
+  }
+  await shot(page, name, '2-counter-5of5');
+  const ending = await state(page);
+  summaries.push(`## ${name} (just after fifth lantern)\n${await text(page)}`);
+  if (ending.screen !== 'ending') failures.push(`[${name}] expected screen: ending, got ${ending.screen}`);
+  const stuck = await state(page);
+  await page.keyboard.down('KeyW');
+  await advance(page, 500); // controls are locked
+  await page.keyboard.up('KeyW');
+  const locked = await state(page);
+  if (locked.player.x !== stuck.player.x || locked.player.z !== stuck.player.z) failures.push(`[${name}] player moved during the ending`);
+  await advance(page, 2000);
+  await shot(page, name, '3-camera-rising');
+  await advance(page, 4500);
+  await page.waitForTimeout(2300); // end-screen fade
+  await shot(page, name, '4-vista-end');
+  const end = await state(page);
+  summaries.push(`## ${name} (end)\n${await text(page)}`);
+  if (end.screen !== 'end') failures.push(`[${name}] expected screen: end, got ${end.screen}`);
+  if (!(await page.isVisible('#ending'))) failures.push(`[${name}] end screen not visible`);
+  await page.click('#ending button');
+  await advance(page, 100);
+  const again = await state(page);
+  if (again.screen !== 'playing' || again.lanterns !== '0/5') failures.push(`[${name}] play again did not reset (${again.screen}, ${again.lanterns})`);
+});
+
 await browser.close();
 await server?.close();
 

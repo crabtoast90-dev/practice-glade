@@ -5,11 +5,12 @@ import { createWorld } from './world.js';
 import { createPlayer } from './player.js';
 import { createDebugOverlay } from './debug.js';
 import { START, BOUNDS, LANTERN_SPOTS, clampToBounds } from './level.js';
+import { createLanterns } from './lanterns.js';
+import { createEnding } from './ending.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
 const DEBUG = params.has('debug');
-const LANTERN_TOTAL = 5;
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game');
@@ -31,7 +32,18 @@ const debug = DEBUG ? createDebugOverlay($('fps'), renderer) : null;
 
 player.position.set(START.x, 0, START.z);
 
-const game = { screen: 'start', lanternsFound: 0, overhead: false };
+const lanterns = createLanterns(scene);
+const LANTERN_TOTAL = lanterns.total;
+const ending = createEnding({ lanterns, onPlayAgain: playAgain });
+const game = { screen: 'start', overhead: false };
+const NO_INPUT = { consumeLook: () => ({ yaw: 0, pitch: 0 }), turn: 0, move: { x: 0, y: 0 } };
+
+function playAgain() {
+  lanterns.reset();
+  ending.reset();
+  player.position.set(START.x, 0, START.z);
+  game.screen = 'playing';
+}
 
 function resize() {
   const w = window.innerWidth;
@@ -67,6 +79,17 @@ function step(dt) {
   if (game.screen === 'playing') {
     player.update(dt, input);
     clampToBounds(player.position);
+    lanterns.update(player.position);
+    if (lanterns.found === LANTERN_TOTAL) {
+      // Controls lock; the camera leaves from where the player was looking.
+      player.placeCamera(camera);
+      ending.start(camera, new THREE.Vector3(player.position.x, player.position.y + 1.6, player.position.z));
+      game.screen = 'ending';
+    }
+  } else if (game.screen === 'ending') {
+    player.update(dt, NO_INPUT); // stand still, idle animation
+    ending.update(dt);
+    game.screen = ending.screen === 'end' ? 'end' : 'ending';
   }
   clock.tick(dt);
 }
@@ -86,10 +109,11 @@ function render() {
     camera.lookAt(0, 0, 0);
   } else {
     camera.up.set(0, 1, 0);
-    player.placeCamera(camera);
+    if (game.screen === 'ending' || game.screen === 'end') ending.placeCamera(camera);
+    else player.placeCamera(camera);
   }
   world.follow(player.position);
-  $('lanterns').textContent = `${game.lanternsFound} / ${LANTERN_TOTAL}`;
+  $('lanterns').textContent = `${lanterns.found} / ${LANTERN_TOTAL}`;
   renderer.render(scene, camera);
   debug?.frame();
 }
@@ -104,7 +128,8 @@ function state() {
     frame: clock.frame,
     player: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), facingDeg: deg(player.facing), moving: player.moving, animation: player.animation },
     cameraYawDeg: deg(player.camYaw),
-    lanterns: `${game.lanternsFound}/${LANTERN_TOTAL}`,
+    lanterns: `${lanterns.found}/${LANTERN_TOTAL}`,
+    lanternsFound: lanterns.foundIds(),
     distFromCentre: +Math.hypot(p.x, p.z).toFixed(2),
   };
 }
@@ -115,7 +140,7 @@ function stateText() {
     `time: ${s.time}s (frame ${s.frame})`,
     `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving} animation=${s.player.animation}`,
     `camera yaw: ${s.cameraYawDeg}deg`,
-    `lanterns: ${s.lanterns}`,
+    `lanterns: ${s.lanterns} (found: ${s.lanternsFound.join(',') || 'none'})`,
     `valley: ${LANTERN_SPOTS.length} lantern spots, walkable radius ${BOUNDS.radius}m, player ${s.distFromCentre}m from centre`,
   ].join('\n');
 }
@@ -124,6 +149,12 @@ window.__game = {
   test: TEST,
   state,
   stateText,
+  // Test-only: stand on a lantern so it is found on the next step.
+  teleportToLantern(id) {
+    if (!TEST) return;
+    const spot = LANTERN_SPOTS.find((l) => l.id === id);
+    player.position.set(spot.x, 0, spot.z);
+  },
   overhead(on) {
     setOverhead(on);
     render();
