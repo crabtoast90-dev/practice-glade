@@ -29,7 +29,7 @@ Each item can be pasted alone into a fresh builder session. Every session reads 
 - [x] **2B. Props.** Lane B (parallel with 2A: use the palette names from `src/look.js` or `src/world.js` PALETTE, don't edit lighting). Make or fetch: 3 pine variants, 2 dead snags, 3 rocks, grass clump, flower clump, lantern. CC0 packs first (Quaternius, KayKit, Kenney); Meshy text-to-3D (low poly, flat colours, under ~5k triangles each) for anything missing, prompted from style frame 1. Place them along the layout from 1B. Files: `public/models/props/`, new `src/props.js`, `tools/` for any Meshy scripts, `CREDITS.md`.
   *Done when:* screenshots from the start point and the vista show the props in place, total triangle count is reported in `stateText()`, every asset is in `CREDITS.md`.
 
-- [ ] **2C. Vegetation scatter and budget.** After 2B. Instance grass, flowers and trees across the valley with a seeded scatter; keep the start view under a set budget (draw calls < 150, triangles < 300k). Files: `src/props.js`, new `src/scatter.js`.
+- [x] **2C. Vegetation scatter and budget.** After 2B. Instance grass, flowers and trees across the valley with a seeded scatter; keep the start view under a set budget (draw calls < 150, triangles < 300k). Files: `src/props.js`, new `src/scatter.js`.
   *Done when:* `stateText()` reports draw calls and triangles under budget at the start and vista views; screenshots show a full valley.
 
 - [x] **2D. Sound.** Lane C (any time after Day 1). CC0 ambient wind and birds loop, soft footsteps, a chime when a lantern is found, a swell for the ending. Starts on tap-to-start. Files: new `src/audio.js`, `public/audio/`, `CREDITS.md`.

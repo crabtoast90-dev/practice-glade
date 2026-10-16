@@ -374,6 +374,12 @@ await run('props', { viewport: { width: 1280, height: 720 } }, async (page, name
   await advance(page, 100);
   await shot(page, name, '1-start-point');
   const start = await state(page);
+  const budget = (label, s) => {
+    summaries.push(`## ${name} budget at ${label}: ${s.frame.drawCalls} draw calls, ${s.frame.triangles} triangles`);
+    if (s.frame.drawCalls >= 150) failures.push(`[${name}] ${label}: ${s.frame.drawCalls} draw calls (limit 150)`);
+    if (s.frame.triangles >= 300000) failures.push(`[${name}] ${label}: ${s.frame.triangles} triangles (limit 300000)`);
+  };
+  budget('the start view', start);
   await page.evaluate(() => window.__game.teleport(-14, 2, 70, 10));
   await advance(page, 100);
   await shot(page, name, '2-start-looking-west');
@@ -384,6 +390,7 @@ await run('props', { viewport: { width: 1280, height: 720 } }, async (page, name
   await advance(page, 6500);
   await page.waitForTimeout(2300);
   await shot(page, name, '3-vista');
+  budget('the vista', await state(page));
   const text = await page.evaluate(() => window.__game.stateText());
   summaries.push(`## ${name}\n${text}`);
   const c = start.props.counts;

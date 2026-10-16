@@ -1,10 +1,11 @@
 // Turn the Quaternius "Ultimate Stylized Nature" models we use (tools/source-assets/quaternius-nature/, CC0)
 // into small GLBs in public/models/props/: normal maps dropped, leaf cut-outs hard-edged, textures 512 px WebP.
-// Needs, once, outside the repo's dependencies:  npm i --no-save @gltf-transform/core @gltf-transform/extensions @gltf-transform/functions sharp
+// Needs, once, outside the repo's dependencies:  npm i --no-save @gltf-transform/core @gltf-transform/extensions @gltf-transform/functions sharp meshoptimizer
 // Run: node tools/build-pack-props.mjs
 import { NodeIO } from '@gltf-transform/core';
 import { EXTTextureWebP } from '@gltf-transform/extensions';
-import { textureCompress, prune, dedup } from '@gltf-transform/functions';
+import { textureCompress, prune, dedup, simplify, weld } from '@gltf-transform/functions';
+import { MeshoptSimplifier } from 'meshoptimizer';
 import sharp from 'sharp';
 import { existsSync } from 'node:fs';
 
@@ -26,6 +27,10 @@ for (const n of ['BirchTree_Bark', 'MapleTree_Bark', 'PineTree_Bark', 'NormalTre
   if (!existsSync(f)) await sharp({ create: { width: 1, height: 1, channels: 3, background: '#8080ff' } }).png().toFile(f);
 }
 
+// Trees are drawn twice (view + shadow), so they get the most simplifying (share of triangles kept).
+const KEEP = { birch: 0.3, maple: 0.3, dead: 0.5 };
+await MeshoptSimplifier.ready;
+
 const io = new NodeIO().registerExtensions([EXTTextureWebP]);
 for (const [out, src] of Object.entries(MODELS)) {
   const doc = await io.read(`${SRC}${src}.gltf`);
@@ -34,6 +39,8 @@ for (const [out, src] of Object.entries(MODELS)) {
     m.setMetallicFactor(0).setRoughnessFactor(1);
     if (m.getAlphaMode() === 'BLEND') m.setAlphaMode('MASK').setAlphaCutoff(0.5);
   }
+  const keep = KEEP[out.split('_')[0]];
+  if (keep) await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio: keep, error: 0.05, lockBorder: false }));
   await doc.transform(prune(), dedup(), textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [512, 512] }));
   await io.write(`${OUT}${out}.glb`, doc);
   console.log('wrote', out);

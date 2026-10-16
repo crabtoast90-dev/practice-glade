@@ -23,6 +23,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.info.autoReset = false; // counted once per frame in render(), across shadow and post passes
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
@@ -115,6 +116,7 @@ function render() {
   }
   world.follow(player.position);
   $('lanterns').textContent = `${lanterns.found} / ${LANTERN_TOTAL}`;
+  renderer.info.reset();
   post.render();
   debug?.frame();
 }
@@ -135,6 +137,7 @@ function state() {
     lanterns: `${lanterns.found}/${LANTERN_TOTAL}`,
     lanternsFound: lanterns.foundIds(),
     props: { loaded: props.loaded, triangles: props.triangles, counts: props.counts },
+    frame: { drawCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles },
     distFromCentre: +Math.hypot(p.x, p.z).toFixed(2),
   };
 }
@@ -155,6 +158,7 @@ function stateText() {
     `lanterns: ${s.lanterns} (found: ${s.lanternsFound.join(',') || 'none'})`,
     `audio: ${audioText()}`,
     `props: ${s.props.loaded ? 'loaded' : 'loading'}, ${s.props.triangles} triangles (${Object.entries(s.props.counts).map(([k, v]) => `${v} ${k}`).join(', ')})`,
+    `budget: this frame drew ${s.frame.drawCalls} draw calls and ${s.frame.triangles} triangles (shadow and post passes included; limits 150 and 300000)`,
     `valley: ${LANTERN_SPOTS.length} lantern spots, walkable radius ${BOUNDS.radius}m, player ${s.distFromCentre}m from centre`,
   ].join('\n');
 }
