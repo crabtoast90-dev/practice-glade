@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { pathMask, moundHeight, ROCKS, LANTERN_SPOTS, VISTA, START } from './level.js';
 
 // Golden-hour palette. The Day 2 "look" session owns these numbers.
 export const PALETTE = {
@@ -18,13 +19,14 @@ export const PALETTE = {
 // first frame is backlit like the reference shots.
 export const SUN_DIR = new THREE.Vector3(0.7, 0.18, -1).normalize();
 
-// Deterministic rolling valley: flat-ish in the middle, rising toward the edges.
+// Deterministic valley: a bowl with steep walls, gentle rolls (flattened along
+// paths), plus the hills and hollows from level.js.
 export function heightAt(x, z) {
   const r = Math.hypot(x, z);
-  const t = THREE.MathUtils.smoothstep(r, 50, 140);
-  const bowl = t * 18;
+  const t = THREE.MathUtils.smoothstep(r, 55, 110);
+  const bowl = t * 30;
   const roll = Math.sin(x * 0.08) * Math.cos(z * 0.07) * 1.2 + Math.sin((x + z) * 0.03) * 1.5;
-  return roll + bowl;
+  return roll * (1 - 0.8 * pathMask(x, z)) + bowl + moundHeight(x, z);
 }
 
 function makeSky() {
@@ -70,9 +72,17 @@ function makeGround() {
   const geo = new THREE.PlaneGeometry(400, 400, 100, 100);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) pos.setY(i, heightAt(pos.getX(i), pos.getZ(i)));
+  const colors = new Float32Array(pos.count * 3);
+  const path = new THREE.Color('#e0c288');
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    pos.setY(i, heightAt(x, z));
+    c.set(0xffffff).lerp(path, pathMask(x, z) * 0.8).toArray(colors, i * 3);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: PALETTE.ground, flatShading: true, roughness: 1 }));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: PALETTE.ground, vertexColors: true, flatShading: true, roughness: 1 }));
   mesh.receiveShadow = true;
   return mesh;
 }
@@ -116,6 +126,34 @@ function makeRocks() {
     m.castShadow = m.receiveShadow = true;
     group.add(m);
   }
+  // Rocks that hide the lantern spots.
+  ROCKS.forEach(([x, z, s], i) => {
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), mat);
+    m.position.set(x, heightAt(x, z) + s * 0.45, z);
+    m.rotation.set(i * 1.3, i * 2.1, 0);
+    m.scale.y = 1.1;
+    m.castShadow = m.receiveShadow = true;
+    group.add(m);
+  });
+  return group;
+}
+
+// Tall coloured posts for the overhead check view only: red = lantern spot,
+// blue = vista viewpoint, green = start. Hidden during play.
+function makeMarkers() {
+  const group = new THREE.Group();
+  const post = (x, z, color) => {
+    const m = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.5, 3.5, 12, 12),
+      new THREE.MeshBasicMaterial({ color, fog: false }),
+    );
+    m.position.set(x, heightAt(x, z) + 6, z);
+    group.add(m);
+  };
+  LANTERN_SPOTS.forEach((s) => post(s.x, s.z, '#ff2a2a'));
+  post(VISTA.camera.x, VISTA.camera.z, '#2a6cff');
+  post(START.x, START.z, '#2aff5a');
+  group.visible = false;
   return group;
 }
 
@@ -138,10 +176,12 @@ export function createWorld(scene) {
   sun.shadow.normalBias = 0.04;
   scene.add(sun, sun.target);
 
-  scene.add(makeSky(), makeGround(), makeMountains(), makeRocks());
+  const markers = makeMarkers();
+  scene.add(makeSky(), makeGround(), makeMountains(), makeRocks(), markers);
 
   return {
     sun,
+    markers,
     // Keep the shadow box centred on the player so shadows stay sharp.
     follow(target) {
       sun.target.position.copy(target);

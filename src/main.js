@@ -4,6 +4,7 @@ import { createInput } from './input.js';
 import { createWorld } from './world.js';
 import { createPlayer } from './player.js';
 import { createDebugOverlay } from './debug.js';
+import { START, BOUNDS, LANTERN_SPOTS, clampToBounds } from './level.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -28,7 +29,9 @@ const input = createInput(canvas, $('joystick'), $('stick'));
 const clock = createClock({ manual: TEST });
 const debug = DEBUG ? createDebugOverlay($('fps'), renderer) : null;
 
-const game = { screen: 'start', lanternsFound: 0 };
+player.position.set(START.x, 0, START.z);
+
+const game = { screen: 'start', lanternsFound: 0, overhead: false };
 
 function resize() {
   const w = window.innerWidth;
@@ -61,12 +64,30 @@ $('start').addEventListener('click', () => {
 
 function step(dt) {
   input.update();
-  if (game.screen === 'playing') player.update(dt, input);
+  if (game.screen === 'playing') {
+    player.update(dt, input);
+    clampToBounds(player.position);
+  }
   clock.tick(dt);
 }
 
+// Test-only: look straight down on the whole valley with the spots marked.
+const savedFog = scene.fog;
+function setOverhead(on) {
+  game.overhead = on;
+  world.markers.visible = on;
+  scene.fog = on ? null : savedFog;
+}
+
 function render() {
-  player.placeCamera(camera);
+  if (game.overhead) {
+    camera.position.set(0, 270, 0);
+    camera.up.set(0, 0, -1);
+    camera.lookAt(0, 0, 0);
+  } else {
+    camera.up.set(0, 1, 0);
+    player.placeCamera(camera);
+  }
   world.follow(player.position);
   $('lanterns').textContent = `${game.lanternsFound} / ${LANTERN_TOTAL}`;
   renderer.render(scene, camera);
@@ -84,6 +105,7 @@ function state() {
     player: { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), facingDeg: deg(player.facing), moving: player.moving, animation: player.animation },
     cameraYawDeg: deg(player.camYaw),
     lanterns: `${game.lanternsFound}/${LANTERN_TOTAL}`,
+    distFromCentre: +Math.hypot(p.x, p.z).toFixed(2),
   };
 }
 function stateText() {
@@ -94,6 +116,7 @@ function stateText() {
     `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving} animation=${s.player.animation}`,
     `camera yaw: ${s.cameraYawDeg}deg`,
     `lanterns: ${s.lanterns}`,
+    `valley: ${LANTERN_SPOTS.length} lantern spots, walkable radius ${BOUNDS.radius}m, player ${s.distFromCentre}m from centre`,
   ].join('\n');
 }
 
@@ -101,6 +124,10 @@ window.__game = {
   test: TEST,
   state,
   stateText,
+  overhead(on) {
+    setOverhead(on);
+    render();
+  },
   // Test clock: advance simulated time in fixed steps, then draw one frame.
   advance(ms) {
     const n = Math.round(ms / 1000 / STEP);

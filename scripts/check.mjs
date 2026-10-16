@@ -134,6 +134,26 @@ await run('phone', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2
   if (JSON.stringify(before.player) === JSON.stringify(after.player)) failures.push(`[${name}] player did not move`);
 });
 
+// Valley: overhead map with the markers, and the walls hold the player in.
+await run('valley', { viewport: { width: 1280, height: 720 } }, async (page, name) => {
+  await advance(page, 100);
+  await page.click('#start');
+  await advance(page, 100);
+  await page.evaluate(() => window.__game.overhead(true));
+  await shot(page, name, '1-overhead');
+  await page.evaluate(() => window.__game.overhead(false));
+  await hold(page, 'KeyW', 25000); // walk straight at the north wall (-Z)
+  const atWall = await state(page);
+  await shot(page, name, '2-at-wall');
+  await hold(page, 'KeyW', 5000); // keep pushing into it for 5 s
+  const pushed = await state(page);
+  const limit = Number(/walkable radius (\d+)m/.exec(await page.evaluate(() => window.__game.stateText()))[1]);
+  summaries.push(`## ${name}\n${await page.evaluate(() => window.__game.stateText())}`);
+  if (pushed.distFromCentre > limit + 0.01) failures.push(`[${name}] player walked past the wall: ${pushed.distFromCentre}m > ${limit}m`);
+  if (atWall.distFromCentre < limit - 0.5) failures.push(`[${name}] player never reached the wall (${atWall.distFromCentre}m of ${limit}m)`);
+  if (Math.hypot(pushed.player.x - atWall.player.x, pushed.player.z - atWall.player.z) > 0.05) failures.push(`[${name}] player kept sliding while pushed into the wall`);
+});
+
 await browser.close();
 await server?.close();
 
