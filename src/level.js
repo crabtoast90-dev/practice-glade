@@ -47,8 +47,8 @@ export const PATHS = [
   [[0, 0], [2, 30], [6, 50], [8, 60]],
   [[0, 0], [18, -30], [38, -46], [52, -66]],
 ];
-const PATH_HALF_WIDTH = 1.8;
-const PATH_FADE = 2.2;
+const PATH_HALF_WIDTH = 2.6;
+const PATH_FADE = 1.2;
 
 function distToSegment(px, pz, ax, az, bx, bz) {
   const dx = bx - ax, dz = bz - az;

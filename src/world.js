@@ -24,7 +24,7 @@ export const SUN_DIR = new THREE.Vector3(0.7, 0.18, -1).normalize();
 export function heightAt(x, z) {
   const r = Math.hypot(x, z);
   const t = THREE.MathUtils.smoothstep(r, 55, 110);
-  const bowl = t * 30;
+  const bowl = t * 9;
   const roll = Math.sin(x * 0.08) * Math.cos(z * 0.07) * 1.2 + Math.sin((x + z) * 0.03) * 1.5;
   return roll * (1 - 0.8 * pathMask(x, z)) + bowl + moundHeight(x, z);
 }
@@ -69,20 +69,20 @@ function makeSky() {
 }
 
 function makeGround() {
-  const geo = new THREE.PlaneGeometry(400, 400, 100, 100);
+  const geo = new THREE.PlaneGeometry(400, 400, 200, 200);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
-  const path = new THREE.Color('#e0c288');
+  const path = new THREE.Color('#f1e4b6');
   const c = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
     pos.setY(i, heightAt(x, z));
-    c.set(0xffffff).lerp(path, pathMask(x, z) * 0.8).toArray(colors, i * 3);
+    c.copy(PALETTE.ground).lerp(path, pathMask(x, z)).toArray(colors, i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: PALETTE.ground, vertexColors: true, flatShading: true, roughness: 1 }));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, flatShading: true, roughness: 1 }));
   mesh.receiveShadow = true;
   return mesh;
 }
