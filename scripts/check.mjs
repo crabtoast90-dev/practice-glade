@@ -2,7 +2,7 @@
 // test clock, save screenshots, and fail on console errors or a frozen state.
 import { build, preview } from 'vite';
 import { chromium } from 'playwright-core';
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RUNS = 'check-output';
@@ -333,6 +333,36 @@ await run('audio', { viewport: { width: 1280, height: 720 } }, async (page, name
     if (Object.keys(a.failed).length) failures.push(`[${name}] sounds failed to load: ${JSON.stringify(a.failed)}`);
     if (a.loaded.length !== 7) failures.push(`[${name}] only ${a.loaded.length}/7 sounds loaded`);
   }
+});
+
+// Look: three camera angles in the style-frame spirit, saved next to the style frame itself.
+await run('look', { viewport: { width: 960, height: 540 } }, async (page, name) => {
+  await advance(page, 100);
+  await page.click('#start');
+  await advance(page, 100);
+  const angles = [
+    ['1-sun-down-the-valley', [0, 4, -32, -8]],
+    ['2-rocks-near-the-lantern', [-14, -4, 25, 6]],
+    ['3-ridges-from-the-hill', [38, -50, 0, 4]],
+  ];
+  const files = [];
+  for (const [label, [x, z, yaw, pitch]] of angles) {
+    await page.evaluate(([a, b, c, d]) => window.__game.teleport(a, b, c, d), [x, z, yaw, pitch]);
+    await advance(page, 100);
+    await shot(page, name, label);
+    files.push(join(OUT, `${name}-${label}.png`));
+  }
+  const text = await page.evaluate(() => window.__game.stateText());
+  summaries.push(`## ${name}\n${text}`);
+  if (!/post-processing (full|cheap)/.test(text)) failures.push(`[${name}] post-processing is not running`);
+  // Style frame and the three shots in a 2x2 sheet.
+  const img = (f) => `data:image/${f.endsWith('.webp') ? 'webp' : 'png'};base64,${readFileSync(f).toString('base64')}`;
+  const cells = [join('style-frames', '1-close-to-reference.png'), ...files].map((f) => `<img src="${img(f)}">`).join('');
+  const sheet = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  await sheet.setContent(`<body style="margin:0;display:grid;grid-template-columns:960px 960px;background:#000">${cells.replace(/<img /g, '<img style="width:960px;height:540px;object-fit:cover" ')}</body>`);
+  await sheet.waitForFunction(() => [...document.images].every((i) => i.complete));
+  await sheet.screenshot({ path: join(OUT, 'look-compare.png') });
+  await sheet.close();
 });
 
 await browser.close();

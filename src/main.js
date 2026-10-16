@@ -8,6 +8,7 @@ import { START, BOUNDS, LANTERN_SPOTS, clampToBounds } from './level.js';
 import { createLanterns } from './lanterns.js';
 import { createEnding } from './ending.js';
 import { createAudio } from './audio.js';
+import { createPost, pickPostTier } from './post.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -29,6 +30,7 @@ const world = createWorld(scene);
 const player = createPlayer(scene);
 const input = createInput(canvas, $('joystick'), $('stick'));
 const clock = createClock({ manual: TEST });
+const post = createPost(renderer, scene, camera, pickPostTier(params));
 const debug = DEBUG ? createDebugOverlay($('fps'), renderer) : null;
 
 player.position.set(START.x, 0, START.z);
@@ -52,6 +54,7 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  post.resize(w, h);
 }
 window.addEventListener('resize', resize);
 resize();
@@ -110,7 +113,7 @@ function render() {
   }
   world.follow(player.position);
   $('lanterns').textContent = `${lanterns.found} / ${LANTERN_TOTAL}`;
-  renderer.render(scene, camera);
+  post.render();
   debug?.frame();
 }
 
@@ -126,6 +129,7 @@ function state() {
     cameraYawDeg: deg(player.camYaw),
     camera: { distance: +player.cam.distance.toFixed(2), pitchDeg: deg(player.camPitch), pulledIn: player.cam.pulledIn, y: +camera.position.y.toFixed(2), groundBelow: +heightAt(camera.position.x, camera.position.z).toFixed(2) },
     audio: audio ? audio.status() : null,
+    post: post.tier,
     lanterns: `${lanterns.found}/${LANTERN_TOTAL}`,
     lanternsFound: lanterns.foundIds(),
     distFromCentre: +Math.hypot(p.x, p.z).toFixed(2),
@@ -144,6 +148,7 @@ function stateText() {
     `time: ${s.time}s (frame ${s.frame})`,
     `player: x=${s.player.x} y=${s.player.y} z=${s.player.z} facing=${s.player.facingDeg}deg moving=${s.player.moving} animation=${s.player.animation} sprinting=${s.player.sprinting} airborne=${s.player.airborne}`,
     `camera: yaw=${s.cameraYawDeg}deg pitch=${s.camera.pitchDeg}deg distance=${s.camera.distance}m pulledIn=${s.camera.pulledIn} height=${s.camera.y}m (ground below ${s.camera.groundBelow}m)`,
+    `look: post-processing ${s.post}`,
     `lanterns: ${s.lanterns} (found: ${s.lanternsFound.join(',') || 'none'})`,
     `audio: ${audioText()}`,
     `valley: ${LANTERN_SPOTS.length} lantern spots, walkable radius ${BOUNDS.radius}m, player ${s.distFromCentre}m from centre`,

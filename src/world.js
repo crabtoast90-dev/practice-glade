@@ -1,22 +1,11 @@
 import * as THREE from 'three';
+import { PALETTE, makeMaterial } from './look.js';
 import { pathMask, moundHeight, ROCKS, LANTERN_SPOTS, VISTA, START } from './level.js';
-
-// Golden-hour palette. The Day 2 "look" session owns these numbers.
-export const PALETTE = {
-  skyTop: new THREE.Color('#1f5f68'),
-  skyHorizon: new THREE.Color('#8fb7ad'),
-  sunGlow: new THREE.Color('#ffc46b'),
-  fog: new THREE.Color('#a9b9a0'),
-  sun: new THREE.Color('#ffb36b'),
-  hemiSky: new THREE.Color('#8a9fb8'),
-  hemiGround: new THREE.Color('#b0603a'),
-  ground: new THREE.Color('#c79a4a'),
-  rock: new THREE.Color('#8a7a6e'),
-  mountain: new THREE.Color('#4f7f86'),
-};
 
 // Low sun in front of the starting view (player starts facing -Z), so the
 // first frame is backlit like the reference shots.
+export { PALETTE };
+
 export const SUN_DIR = new THREE.Vector3(0.7, 0.18, -1).normalize();
 
 // Deterministic valley: a bowl with steep walls, gentle rolls (flattened along
@@ -37,8 +26,10 @@ function makeSky() {
     fog: false,
     uniforms: {
       top: { value: PALETTE.skyTop },
+      mid: { value: PALETTE.skyMid },
       horizon: { value: PALETTE.skyHorizon },
       glow: { value: PALETTE.sunGlow },
+      core: { value: PALETTE.sunCore },
       sunDir: { value: SUN_DIR },
     },
     vertexShader: /* glsl */ `
@@ -49,15 +40,21 @@ function makeSky() {
         gl_Position = p.xyww;
       }`,
     fragmentShader: /* glsl */ `
-      uniform vec3 top, horizon, glow, sunDir;
+      uniform vec3 top, mid, horizon, glow, core, sunDir;
       varying vec3 vDir;
       void main() {
         vec3 d = normalize(vDir);
         float h = clamp(d.y, 0.0, 1.0);
-        vec3 col = mix(horizon, top, pow(h, 0.55));
+        vec3 col = mix(horizon, mid, smoothstep(0.0, 0.18, h));
+        col = mix(col, top, smoothstep(0.1, 0.75, h));
         float s = max(dot(d, sunDir), 0.0);
-        col = mix(col, glow, pow(s, 6.0) * 0.85 * (1.0 - h * 0.6));
-        col += glow * smoothstep(0.9993, 0.9997, s);
+        // Wide warm wash, tighter halo, then the sun itself (bright enough to bloom).
+        col = mix(col, glow, pow(s, 5.0) * 0.8 * (1.0 - h * 0.5));
+        col += glow * pow(s, 40.0) * 0.5;
+        col += core * smoothstep(0.9990, 0.9996, s) * 4.0;
+        // Faint soft rays fanning out of the sun.
+        float ang = atan(d.x - sunDir.x, d.y - sunDir.y);
+        col += glow * pow(s, 3.0) * 0.06 * (0.5 + 0.5 * sin(ang * 9.0));
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }`,
@@ -73,7 +70,7 @@ function makeGround() {
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
-  const path = new THREE.Color('#f1e4b6');
+  const path = PALETTE.path;
   const c = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
@@ -82,7 +79,7 @@ function makeGround() {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, flatShading: true, roughness: 1 }));
+  const mesh = new THREE.Mesh(geo, makeMaterial(new THREE.Color(0xffffff), { vertexColors: true }));
   mesh.receiveShadow = true;
   return mesh;
 }
@@ -90,13 +87,13 @@ function makeGround() {
 // Distant low-poly ridges in rings, so the fog reads as layered haze.
 function makeMountains() {
   const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: PALETTE.mountain, flatShading: true, roughness: 1 });
   const rings = [
-    { r: 160, n: 14, h: 45 },
-    { r: 260, n: 18, h: 80 },
-    { r: 380, n: 22, h: 120 },
+    { r: 160, n: 14, h: 45, color: 'ridgeNear' },
+    { r: 260, n: 18, h: 80, color: 'ridgeMid' },
+    { r: 380, n: 22, h: 120, color: 'ridgeFar' },
   ];
   rings.forEach((ring, ri) => {
+    const mat = makeMaterial(ring.color);
     for (let i = 0; i < ring.n; i++) {
       const a = (i / ring.n) * Math.PI * 2 + ri * 0.4;
       const h = ring.h * (0.6 + 0.4 * Math.abs(Math.sin(i * 2.3 + ri)));
@@ -134,7 +131,7 @@ export function pushOutOfRocks(pos) {
 
 function makeRocks() {
   const group = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: PALETTE.rock, flatShading: true, roughness: 1 });
+  const mat = makeMaterial('rock');
   SCATTER_ROCKS.forEach(([x, z, s], i) => {
     const m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), mat);
     m.position.set(x, heightAt(x, z) + s * 0.4, z);
@@ -175,19 +172,20 @@ function makeMarkers() {
 
 export function createWorld(scene) {
   scene.background = PALETTE.skyHorizon;
-  scene.fog = new THREE.Fog(PALETTE.fog, 25, 420);
+  scene.fog = new THREE.FogExp2(PALETTE.fog, 0.0042);
 
-  const hemi = new THREE.HemisphereLight(PALETTE.hemiSky, PALETTE.hemiGround, 1.1);
+  const hemi = new THREE.HemisphereLight(PALETTE.hemiSky, PALETTE.hemiGround, 1.7);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(PALETTE.sun, 3.2);
+  const sun = new THREE.DirectionalLight(PALETTE.sun, 3.6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   const c = sun.shadow.camera;
-  c.left = c.bottom = -30;
-  c.right = c.top = 30;
+  c.left = c.bottom = -42;
+  c.right = c.top = 42;
   c.near = 1;
   c.far = 200;
+  sun.shadow.radius = 3; // soft shadow edges
   sun.shadow.bias = -0.0005;
   sun.shadow.normalBias = 0.04;
   scene.add(sun, sun.target);
